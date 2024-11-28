@@ -16,7 +16,7 @@ clear_page_cache() {
 load_times=()
 
 # Iterate 10 times
-for i in {1..2}; do
+for i in {1..100}; do
     echo "Iteration $i"
     
     # Clear the page cache

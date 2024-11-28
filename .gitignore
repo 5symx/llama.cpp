@@ -91,7 +91,7 @@ qnt-*.txt
 perf-*.txt
 
 # Examples
-
+examples/llama-bench/ShareGPT_V3_unfiltered_cleaned_split.json
 examples/jeopardy/results.txt
 examples/server/*.css.hpp
 examples/server/*.html.hpp
