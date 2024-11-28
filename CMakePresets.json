@@ -257,12 +257,14 @@
         {
             "name": "cmake",
             "displayName": "Custom configure preset",
-            "description": "Sets Ninja generator, build and install directory",
-            "generator": "Ninja",
+            "description": "Sets Unix Makefiles generator, build and install directory with CUDA support",
+            "generator": "Unix Makefiles",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "GGML_CUDA": "ON",
+                "CMAKE_CUDA_COMPILER": "/usr/local/cuda/bin/nvcc"
             }
         }
     ]

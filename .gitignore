@@ -40,7 +40,7 @@ gcovr-report/
 lcov-report/
 
 # Build Artifacts
-
+.build_debug/
 tags
 .build/
 build*

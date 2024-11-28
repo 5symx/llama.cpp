@@ -4,7 +4,7 @@
 LLAMA_BENCH_PATH="/home/mingxuanyang/my_llama.cpp"
 
 # Define the command to run llama-bench
-LLAMA_BENCH_CMD="$LLAMA_BENCH_PATH/build_debug/bin/llama-bench -m $LLAMA_BENCH_PATH/models/llama-7b-f16.gguf -sm none -r 10 -pg 395,344 -p 395 -n 344 -b 1024"
+LLAMA_BENCH_CMD="$LLAMA_BENCH_PATH/build_debug/bin/llama-bench -m $LLAMA_BENCH_PATH/models/llama-7b-f16.gguf -sm none -r 1 -pg 395,344 -p 395 -n 344 -b 1024"
 
 # Function to clear the page cache
 clear_page_cache() {
@@ -16,7 +16,7 @@ clear_page_cache() {
 load_times=()
 
 # Iterate 10 times
-for i in {1..3}; do
+for i in {1..2}; do
     echo "Iteration $i"
     
     # Clear the page cache
