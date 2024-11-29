@@ -21,6 +21,10 @@ from vllm.multimodal import MultiModalDataDict
 from vllm.sampling_params import BeamSearchParams
 from vllm.utils import FlexibleArgumentParser, merge_async_iterators
 
+import os
+# os.environ['HF_HOME'] = '/home/mingxuanyang/.cache/huggingface/hub'
+os.environ['TRANSFORMERS_CACHE'] = '/dev/shm'#'/home/mingxuanyang/.cache/huggingface/hub'
+
 
 @dataclasses.dataclass
 class SampleRequest:
@@ -75,7 +79,7 @@ def sample_requests(tokenizer: PreTrainedTokenizerBase,
     # Filter out the conversations with less than 2 turns.
     dataset = [data for data in dataset if len(data["conversations"]) >= 2]
     # Shuffle the dataset.
-    random.shuffle(dataset)
+    # random.shuffle(dataset)
 
     # Filter out sequences that are too long or too short
     filtered_dataset: List[SampleRequest] = []
@@ -209,7 +213,8 @@ async def run_vllm_async(
         end = time.perf_counter()
         return end - start
 
-
+from typing import Tuple
+import numpy as np
 def run_hf(
     requests: List[SampleRequest],
     model: str,
@@ -217,39 +222,66 @@ def run_hf(
     n: int,
     max_batch_size: int,
     trust_remote_code: bool,
-) -> float:
+    input_token_length: int,
+    output_token_length: int,
+) -> Tuple[float, int, int, float, float, float, float]:
+    #input length 
+    # input_token_length = 100
+    # output_token_length = 101
+    print("Set Token length of the input:", input_token_length)
+    print("Set Token new length of the output:", output_token_length)
+    total_input_length = 0
+    total_output_length = 0
+
+
+    start_load = time.perf_counter()
     llm = AutoModelForCausalLM.from_pretrained(
-        model, torch_dtype=torch.float16, trust_remote_code=trust_remote_code)
+        model, torch_dtype=torch.float16, trust_remote_code=trust_remote_code,token="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")#,cache_dir= "~/.cache/huggingface/")
     if llm.config.model_type == "llama":
         # To enable padding in the HF backend.
         tokenizer.pad_token = tokenizer.eos_token
     llm = llm.cuda()
+    end_load = time.perf_counter()
+    load_time = end_load - start_load
+    print(f'Test Model Load time: {load_time} s')
+    import sys
+    sys.exit(1)
 
+    throughput_new = []
+    throughput_total = []
     pbar = tqdm(total=len(requests))
     start = time.perf_counter()
     batch: List[str] = []
-    max_prompt_len = 0
-    max_output_len = 0
+    # max_prompt_len = 0
+    # max_output_len = 0
     for i in range(len(requests)):
+
+        
         # update 
         temp_req = requests[i]
         prompt, prompt_len, output_len = temp_req.prompt, temp_req.prompt_len, temp_req.expected_output_len
         # Add the prompt to the batch.
         batch.append(prompt)
-        max_prompt_len = max(max_prompt_len, prompt_len)
-        max_output_len = max(max_output_len, output_len)
-        if len(batch) < max_batch_size and i != len(requests) - 1:
-            # Check if we can add more requests to the batch.
-            temp_req_1 = requests[i+1]
-            _, next_prompt_len, next_output_len = temp_req_1.prompt, temp_req_1.prompt_len, temp_req_1.expected_output_len
-            if (max(max_prompt_len, next_prompt_len) +
-                    max(max_output_len, next_output_len)) <= 2048:
-                # We can add more requests to the batch.
-                continue
+        # max_prompt_len = max(max_prompt_len, prompt_len)
+        # max_output_len = max(max_output_len, output_len)
+        # if len(batch) < max_batch_size and i != len(requests) - 1:
+        #     # Check if we can add more requests to the batch.
+        #     temp_req_1 = requests[i+1]
+        #     _, next_prompt_len, next_output_len = temp_req_1.prompt, temp_req_1.prompt_len, temp_req_1.expected_output_len
+        #     if (max(max_prompt_len, next_prompt_len) +
+        #             max(max_output_len, next_output_len)) <= 2048:
+        #         # We can add more requests to the batch.
+        #         continue
 
         # Generate the sequences.
-        input_ids = tokenizer(batch, return_tensors="pt",
-                              padding=True).input_ids
+        # input_ids = tokenizer(batch, return_tensors="pt",
+                            #   padding=True).input_ids
+
+        input_ids = tokenizer(prompt, return_tensors="pt", padding='max_length', max_length=input_token_length, truncation=True).input_ids
+        # print("Token length of the input:", input_ids.shape[1])
+        total_input_length += input_ids.shape[1]
+
+        start_temp = time.perf_counter()
         llm_outputs = llm.generate(
             input_ids=input_ids.cuda(),
             do_sample=True,
@@ -257,18 +289,31 @@ def run_hf(
             temperature=1.0,
             top_p=1.0,
             use_cache=True,
-            max_new_tokens=max_output_len,
+            # max_new_tokens=max_output_len,
+            max_new_tokens=output_token_length,
+            min_new_tokens=output_token_length,
         )
+        end_temp = time.perf_counter()
+        output_length = llm_outputs.shape[1]
+        total_output_length += llm_outputs.shape[1]
+        # print("Token length of the output:", output_length)
+        # print(len(tokenizer.decode(llm_outputs[0], skip_special_tokens=True)))
         # Include the decoding time.
-        tokenizer.batch_decode(llm_outputs, skip_special_tokens=True)
+        output_text = tokenizer.decode(llm_outputs[0], skip_special_tokens=False) # True
+        # print(tokenizer(output_text, return_tensors="pt").input_ids.shape[1])
         pbar.update(len(batch))
 
         # Clear the batch.
         batch = []
-        max_prompt_len = 0
-        max_output_len = 0
+        # max_prompt_len = 0
+        # max_output_len = 0
+        
+        temp_time = end_temp - start_temp
+        throughput_total.append(output_length/temp_time)
+        throughput_new.append((output_length - input_token_length)/temp_time)
     end = time.perf_counter()
-    return end - start
+
+    return end - start , total_input_length, total_output_length, np.average(throughput_total), np.std(throughput_total), np.average(throughput_new), np.std(throughput_new)
 
 
 def run_mii(
@@ -295,7 +340,9 @@ def main(args: argparse.Namespace):
 
     # Sample the requests.
     tokenizer = AutoTokenizer.from_pretrained(
-        args.tokenizer, trust_remote_code=args.trust_remote_code)
+        args.tokenizer, trust_remote_code=args.trust_remote_code,token="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")#,cache_dir= "~/.cache/huggingface/")
+    tokenizer.pad_token = "[PAD]"
+    tokenizer.padding_side = "left"
     if args.dataset is None:
         # Synthesize a prompt with the given input length.
         # As tokenizer may add additional tokens like BOS, we need to try
@@ -333,8 +380,18 @@ def main(args: argparse.Namespace):
                                     EngineArgs.from_cli_args(args))
     elif args.backend == "hf":
         assert args.tensor_parallel_size == 1
-        elapsed_time = run_hf(requests, args.model, tokenizer, args.n,
-                              args.hf_max_batch_size, args.trust_remote_code)
+        elapsed_time, total_input, total_output, avg_new, std_new, avg_total, std_total = run_hf(requests, args.model, tokenizer, args.n, args.hf_max_batch_size, args.trust_remote_code, args.set_input_len, args.set_output_len)
+        total_tokens = total_output
+        total_new_tokens = total_output - total_input
+        print("Total time :", elapsed_time)
+        print("Total Token length of the input :", total_input)
+        print("Total new Token length of the output:", total_new_tokens)
+        print(f"Throughput: {len(requests) / elapsed_time:.2f} requests/s, "
+          f"{total_tokens / elapsed_time:.2f} total tokens/s, "
+          f"{total_new_tokens / elapsed_time:.2f} output tokens/s "
+          f"with out the input tokenizing {avg_total} ± {std_total} total tokens/s "
+        f"with out the input tokenizing {avg_new} ± {std_new} output tokens/s ")
+        return
         ## need update
     elif args.backend == "mii":
         elapsed_time = run_mii(requests, args.model, args.tensor_parallel_size,
@@ -392,6 +449,14 @@ if __name__ == "__main__":
                         type=int,
                         default=1,
                         help="Number of generated sequences per prompt.")
+    parser.add_argument("--set-input-len",
+                        type=int,
+                        default=10,
+                        help="Set Token length of the input.")
+    parser.add_argument("--set-output-len",
+                        type=int,
+                        default=11,
+                        help="Set new Token length of the output.")
     parser.add_argument("--num-prompts",
                         type=int,
                         default=1000,
