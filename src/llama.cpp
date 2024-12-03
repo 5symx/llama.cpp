@@ -7288,7 +7288,7 @@ static llama_model::buft_list_t make_cpu_buft_list(llama_model & model) {
     }
 
     // add extra buffer types
-    auto * cpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU);
+    auto * cpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU); // CPU backend 
     auto * cpu_reg = ggml_backend_dev_backend_reg(cpu_dev);
     auto ggml_backend_dev_get_extra_bufts_fn = (ggml_backend_dev_get_extra_bufts_t)
         ggml_backend_reg_get_proc_address(cpu_reg, "ggml_backend_dev_get_extra_bufts");
@@ -9298,7 +9298,7 @@ static int llama_model_load(const std::string & fname, llama_model & model, llam
     model.t_start_us = ggml_time_us();
 
     try {
-        llama_model_loader ml(fname, params.use_mmap, params.check_tensors, params.kv_overrides);
+        llama_model_loader ml(fname, params.use_mmap, params.check_tensors, params.kv_overrides); // initilize 
 
         model.hparams.vocab_only = params.vocab_only;
 
@@ -9319,7 +9319,7 @@ static int llama_model_load(const std::string & fname, llama_model & model, llam
         }
 
         llm_load_stats(ml, model);
-        llm_load_print_meta(ml, model);
+        llm_load_print_meta(ml, model); // output for parameters
 
         if (model.vocab.type != LLAMA_VOCAB_TYPE_NONE &&
             model.hparams.n_vocab != model.vocab.id_to_token.size()) {

@@ -1411,7 +1411,7 @@ static void test_prompt(llama_context * ctx, int n_prompt, int n_batch, int n_th
         int n_tokens = std::min(n_prompt - n_processed, n_batch);
         tokens[0]    = n_processed == 0 && llama_add_bos_token(model) ? llama_token_bos(model) : std::rand() % n_vocab;
         for (int i = 1; i < n_tokens; i++) {
-            tokens[i] = std::rand() % n_vocab;
+            tokens[i] = std::rand() % n_vocab; /// random tokens
         }
         llama_decode(ctx, llama_batch_get_one(tokens.data(), n_tokens));
         n_processed += n_tokens;

@@ -15,6 +15,11 @@
 #include <string>
 #include <vector>
 
+#include <chrono>
+#include <cinttypes>
+#include <clocale>
+
+
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
 #include <signal.h>
 #include <unistd.h>
@@ -30,6 +35,11 @@
 #if defined(_MSC_VER)
 #pragma warning(disable: 4244 4267) // possible loss of data
 #endif
+static uint64_t get_time_ns() {
+    using clock = std::chrono::high_resolution_clock;
+    return std::chrono::nanoseconds(clock::now().time_since_epoch()).count();
+}
+
 
 static llama_context           ** g_ctx;
 static llama_model             ** g_model;
@@ -90,6 +100,7 @@ static std::string chat_add_and_format(struct llama_model * model, std::vector<c
     LOG_DBG("formatted: '%s'\n", formatted.c_str());
     return formatted;
 }
+
 
 int main(int argc, char ** argv) {
     common_params params;
@@ -248,15 +259,21 @@ int main(int argc, char ** argv) {
 
     LOG_DBG("n_ctx: %d, add_bos: %d\n", n_ctx, add_bos);
 
-    std::vector<llama_token> embd_inp;
+    std::vector<llama_token> embd_inp; // embedding tokens
 
     {
         auto prompt = (params.conversation && params.enable_chat_template && !params.prompt.empty())
             ? chat_add_and_format(model, chat_msgs, "system", params.prompt) // format the system prompt in conversation mode
             : params.prompt;
         if (params.interactive_first || !params.prompt.empty() || session_tokens.empty()) {
+            uint64_t t_start_load = get_time_ns();
             LOG_DBG("tokenize the prompt\n");
             embd_inp = common_tokenize(ctx, prompt, true, true);
+
+            uint64_t t_load_ns = get_time_ns() - t_start_load;
+            double t_load_s = t_load_ns / 1e9; // Convert nanoseconds to seconds
+            LOG_DBG("tokenized time: %.9f s\n", t_load_s);
+
         } else {
             LOG_DBG("use session tokens\n");
             embd_inp = session_tokens;
@@ -375,7 +392,7 @@ int main(int argc, char ** argv) {
             for (const auto & antiprompt : params.antiprompt) {
                 LOG_INF("Reverse prompt: '%s'\n", antiprompt.c_str());
                 if (params.verbose_prompt) {
-                    auto tmp = common_tokenize(ctx, antiprompt, false, true);
+                    auto tmp = common_tokenize(ctx, antiprompt, false, true); // model text
                     for (int i = 0; i < (int) tmp.size(); i++) {
                         LOG_INF("%6d -> '%s'\n", tmp[i], common_token_to_piece(ctx, tmp[i]).c_str());
                     }
@@ -606,7 +623,7 @@ int main(int argc, char ** argv) {
                     n_eval = params.n_batch;
                 }
 
-                LOG_DBG("eval: %s\n", string_from(ctx, embd).c_str());
+                // LOG_DBG("eval: %s\n", string_from(ctx, embd).c_str());
 
                 if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
                     LOG_ERR("%s : failed to eval\n", __func__);
@@ -615,7 +632,7 @@ int main(int argc, char ** argv) {
 
                 n_past += n_eval;
 
-                LOG_DBG("n_past = %d\n", n_past);
+                // LOG_DBG("n_past = %d\n", n_past);
                 // Display total tokens alongside total time
                 if (params.n_print > 0 && n_past % params.n_print == 0) {
                     LOG_DBG("\n\033[31mTokens consumed so far = %d / %d \033[0m\n", n_past, n_ctx);
@@ -653,7 +670,7 @@ int main(int argc, char ** argv) {
             // decrement remaining sampling budget
             --n_remain;
 
-            LOG_DBG("n_remain: %d\n", n_remain);
+            // LOG_DBG("n_remain: %d\n", n_remain);
         } else {
             // some user input remains from prompt or interaction, forward it to processing
             LOG_DBG("embd_inp.size(): %d, n_consumed: %d\n", (int) embd_inp.size(), n_consumed);

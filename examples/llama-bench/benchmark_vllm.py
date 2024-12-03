@@ -244,8 +244,8 @@ def run_hf(
     end_load = time.perf_counter()
     load_time = end_load - start_load
     print(f'Test Model Load time: {load_time} s')
-    import sys
-    sys.exit(1)
+    # import sys
+    # sys.exit(1)
 
     throughput_new = []
     throughput_total = []
