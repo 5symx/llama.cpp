@@ -833,7 +833,7 @@ struct common_init_result common_init_from_params(common_params & params) {
     } else if (!params.model_url.empty()) {
         model = common_load_model_from_url(params.model_url.c_str(), params.model.c_str(), params.hf_token.c_str(), mparams);
     } else {
-        model = llama_load_model_from_file(params.model.c_str(), mparams);
+        model = llama_load_model_from_file(params.model.c_str(), mparams); // load model
     }
 
     if (model == NULL) {

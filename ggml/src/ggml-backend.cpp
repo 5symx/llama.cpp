@@ -129,7 +129,7 @@ void * ggml_backend_buffer_get_base(ggml_backend_buffer_t buffer) {
 void ggml_backend_buffer_init_tensor(ggml_backend_buffer_t buffer, struct ggml_tensor * tensor) {
     // init_tensor is optional
     if (buffer->iface.init_tensor) {
-        buffer->iface.init_tensor(buffer, tensor);
+        buffer->iface.init_tensor(buffer, tensor); // init
     }
 }
 
@@ -263,7 +263,7 @@ void ggml_backend_tensor_set(struct ggml_tensor * tensor, const void * data, siz
     GGML_ASSERT(tensor->data != NULL && "tensor not allocated");
     GGML_ASSERT(offset + size <= ggml_nbytes(tensor) && "tensor write out of bounds");
 
-    buf->iface.set_tensor(buf, tensor, data, offset, size);
+    buf->iface.set_tensor(buf, tensor, data, offset, size); // tensor offset is dst, src is data ; HOST2DEVICE
 }
 
 void ggml_backend_tensor_get(const struct ggml_tensor * tensor, void * data, size_t offset, size_t size) {

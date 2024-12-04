@@ -1553,7 +1553,7 @@ static struct ggml_tensor * ggml_new_tensor_impl(
         view_src   = view_src->view_src;
     }
 
-    size_t data_size = ggml_row_size(type, ne[0]);
+    size_t data_size = ggml_row_size(type, ne[0]); // get size among all dim
     for (int i = 1; i < n_dims; i++) {
         data_size *= ne[i];
     }
@@ -1618,7 +1618,7 @@ static struct ggml_tensor * ggml_new_tensor_impl(
         result->nb[i] = result->nb[i - 1]*result->ne[i - 1];
     }
 
-    ctx->n_objects++;
+    ctx->n_objects++; // update context objects with tensors 
 
     return result;
 }

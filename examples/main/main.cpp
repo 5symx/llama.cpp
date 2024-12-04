@@ -105,7 +105,7 @@ static std::string chat_add_and_format(struct llama_model * model, std::vector<c
 int main(int argc, char ** argv) {
     common_params params;
     g_params = &params;
-    if (!common_params_parse(argc, argv, params, LLAMA_EXAMPLE_MAIN, print_usage)) {
+    if (!common_params_parse(argc, argv, params, LLAMA_EXAMPLE_MAIN, print_usage)) { // cuda init
         return 1;
     }
 
@@ -164,7 +164,7 @@ int main(int argc, char ** argv) {
 
     // load the model and apply lora adapter, if any
     LOG_INF("%s: load the model and apply lora adapter, if any\n", __func__);
-    common_init_result llama_init = common_init_from_params(params);
+    common_init_result llama_init = common_init_from_params(params); // load model kv cache
 
     model = llama_init.model;
     ctx = llama_init.context;

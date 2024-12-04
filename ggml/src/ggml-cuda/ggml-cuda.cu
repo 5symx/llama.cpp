@@ -108,7 +108,7 @@ static cudaError_t ggml_cuda_device_malloc(void ** ptr, size_t size, int device)
     }
     else
     {
-        err = cudaMalloc(ptr, size);
+        err = cudaMalloc(ptr, size); // cuda malloc
     }
     return err;
 #else
@@ -349,7 +349,7 @@ struct ggml_cuda_pool_vmm : public ggml_cuda_pool {
             }
 
             // map at the end of the pool
-            CU_CHECK(cuMemMap(pool_addr + pool_size, reserve_size, 0, handle, 0));
+            CU_CHECK(cuMemMap(pool_addr + pool_size, reserve_size, 0, handle, 0)); // start at pool_addr length of pool is pool_size.
 
             // the memory allocation handle is no longer needed after mapping
             CU_CHECK(cuMemRelease(handle));
@@ -543,7 +543,7 @@ static ggml_backend_buffer_t ggml_backend_cuda_buffer_type_alloc_buffer(ggml_bac
     ggml_cuda_set_device(buft_ctx->device);
 
     void * dev_ptr;
-    cudaError_t err = ggml_cuda_device_malloc(&dev_ptr, size, buft_ctx->device);
+    cudaError_t err = ggml_cuda_device_malloc(&dev_ptr, size, buft_ctx->device); // dev_ptr ~ size
     if (err != cudaSuccess) {
         // clear the error
         cudaGetLastError();

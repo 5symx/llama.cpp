@@ -688,7 +688,7 @@ bool ggml_gallocr_reserve_n(ggml_gallocr_t galloc, struct ggml_cgraph * graph, c
     }
 
     // allocate in hash table
-    ggml_gallocr_alloc_graph_impl(galloc, graph, node_buffer_ids, leaf_buffer_ids);
+    ggml_gallocr_alloc_graph_impl(galloc, graph, node_buffer_ids, leaf_buffer_ids); // update the max_size for new_size
 
     // set the node_allocs from the hash table
     if (galloc->n_nodes < graph->n_nodes) {
@@ -933,7 +933,7 @@ static bool alloc_tensor_range(struct ggml_context * ctx,
         struct ggml_tensor * first, struct ggml_tensor * last,
         ggml_backend_buffer_type_t buft, size_t size,
         ggml_backend_buffer_t ** buffers, size_t * n_buffers) {
-    ggml_backend_buffer_t buffer = ggml_backend_buft_alloc_buffer(buft, size);
+    ggml_backend_buffer_t buffer = ggml_backend_buft_alloc_buffer(buft, size); // cuda malloc
     if (buffer == NULL) {
 #ifndef NDEBUG
         GGML_LOG_DEBUG("%s: failed to allocate %s buffer of size %zu\n", __func__, ggml_backend_buft_name(buft), size);
@@ -950,9 +950,9 @@ static bool alloc_tensor_range(struct ggml_context * ctx,
     for (struct ggml_tensor * t = first; t != last; t = ggml_get_next_tensor(ctx, t)) {
         if (t->data == NULL) {
             if (t->view_src == NULL) {
-                ggml_tallocr_alloc(&tallocr, t);
+                ggml_tallocr_alloc(&tallocr, t); // tallocr buffer init tensor
             } else if (t->buffer == NULL) {
-                ggml_backend_view_init(t);
+                ggml_backend_view_init(t); // for tensor init 
             }
         } else {
             if (t->view_src != NULL && t->buffer == NULL) {
@@ -962,7 +962,7 @@ static bool alloc_tensor_range(struct ggml_context * ctx,
         }
     }
 
-    *buffers = realloc(*buffers, sizeof(ggml_backend_buffer_t) * (*n_buffers + 1));
+    *buffers = realloc(*buffers, sizeof(ggml_backend_buffer_t) * (*n_buffers + 1)); // update with buffers pointer
     (*buffers)[(*n_buffers)++] = buffer;
 
     return true;
@@ -982,7 +982,7 @@ ggml_backend_buffer_t ggml_backend_alloc_ctx_tensors_from_buft(struct ggml_conte
     for (struct ggml_tensor * t = first; t != NULL; t = ggml_get_next_tensor(ctx, t)) {
         size_t this_size = 0;
         if (t->data == NULL && t->view_src == NULL) {
-            this_size = GGML_PAD(ggml_backend_buft_get_alloc_size(buft, t), alignment);
+            this_size = GGML_PAD(ggml_backend_buft_get_alloc_size(buft, t), alignment); // haven't been loads
         }
 
         if (this_size > max_size) {
@@ -999,19 +999,19 @@ ggml_backend_buffer_t ggml_backend_alloc_ctx_tensors_from_buft(struct ggml_conte
 
         if ((cur_buf_size + this_size) > max_size) {
             // allocate tensors in the current buffer
-            if (!alloc_tensor_range(ctx, first, t, buft, cur_buf_size, &buffers, &n_buffers)) {
+            if (!alloc_tensor_range(ctx, first, t, buft, cur_buf_size, &buffers, &n_buffers)) { // alloc tensor happens update buffer
                 return NULL;
             }
             first = t;
             cur_buf_size = this_size;
         } else {
-            cur_buf_size += this_size;
+            cur_buf_size += this_size; // here
         }
     }
 
     // allocate remaining tensors
     if (cur_buf_size > 0) {
-        if (!alloc_tensor_range(ctx, first, NULL, buft, cur_buf_size, &buffers, &n_buffers)) {
+        if (!alloc_tensor_range(ctx, first, NULL, buft, cur_buf_size, &buffers, &n_buffers)) { // alloc tensor with cudamalloc
             return NULL;
         }
     }
