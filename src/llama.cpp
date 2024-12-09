@@ -9165,8 +9165,14 @@ static bool llm_load_tensors(
 
     ml.done_getting_tensors();
 
+    int64_t map_tensor_data_start = ggml_time_us();
+
     ml.init_mappings(true, use_mlock ? &model.mlock_mmaps : nullptr); // update mmap with mapping  cpu backend buffer
     model.mappings.reserve(ml.mappings.size()); // tensor total size 
+
+    int64_t map_tensor_data = ggml_time_us() - map_tensor_data_start;
+    fprintf(stdout, "map data in: %.9f s\n", map_tensor_data/ 1000.0 / 1000.0);
+    LLAMA_LOG_INFO("%s: map data in %.2lf s\n", __func__, map_tensor_data / 1000.0 / 1000.0);
 
     // create the backend buffers
     std::vector<std::pair<ggml_context *, llama_buf_map>> ctx_bufs;
@@ -9274,7 +9280,8 @@ static bool llm_load_tensors(
             model.tensors_by_name.emplace_back(ggml_get_name(cur), cur);
         }
     }
-
+    int64_t load_tensor_data_start = ggml_time_us();
+    LLAMA_LOG_INFO("%s: start load \n", __func__);
     // load tensor data
     for (auto & it : ctx_bufs) {
         ggml_context * ctx = it.first;
@@ -9283,6 +9290,9 @@ static bool llm_load_tensors(
             return false;
         }
     }
+    int64_t load_tensor_data = ggml_time_us() - load_tensor_data_start;
+    fprintf(stdout, "loaded all data in: %.9f s\n", load_tensor_data/ 1000.0 / 1000.0);
+    LLAMA_LOG_INFO("%s: loaded all data in %.2lf s\n", __func__, load_tensor_data / 1000.0 / 1000.0);
 
     if (use_mmap_buffer) {
         for (auto & mapping : ml.mappings) {
@@ -9345,7 +9355,8 @@ static int llama_model_load(const std::string & fname, llama_model & model, llam
     // loading time will be recalculate after the first eval, so
     // we take page faults deferred by mmap() into consideration
     model.t_load_us = ggml_time_us() - model.t_start_us;
-
+    fprintf(stdout, "loaded model in %.9f s\n", model.t_load_us/ 1000.0 / 1000.0);
+    LLAMA_LOG_INFO("%s: loaded model in %.2lf s\n", __func__, model.t_load_us / 1000.0 /1000.0);
     return 0;
 }
 

@@ -1525,10 +1525,11 @@ int main(int argc, char ** argv) {
         }
         // keep the same model between tests when possible
         if (!lmodel || !prev_inst || !inst.equal_mparams(*prev_inst)) {
+
             if (lmodel) {
                 llama_free_model(lmodel);
             }
-            
+
             uint64_t t_start_load = get_time_ns();
             lmodel = llama_load_model_from_file(inst.model.c_str(), inst.to_llama_mparams());
 
@@ -1540,15 +1541,20 @@ int main(int argc, char ** argv) {
                 fprintf(stderr, "%s: error: failed to load model '%s'\n", __func__, inst.model.c_str());
                 return 1;
             }
+
+
             prev_inst = &inst;
         }
-
+        uint64_t t_start_ctx = get_time_ns();
         llama_context * ctx = llama_new_context_with_model(lmodel, inst.to_llama_cparams());
         if (ctx == NULL) {
             fprintf(stderr, "%s: error: failed to create context with model '%s'\n", __func__, inst.model.c_str());
             llama_free_model(lmodel);
             return 1;
         }
+        uint64_t t_load_ctx = get_time_ns() - t_start_ctx;
+        double t_load_s = t_load_ctx / 1e9; // Convert nanoseconds to seconds
+        fprintf(stdout, "Test context Load time: %.9f s\n", t_load_s);
 
         test t(inst, lmodel, ctx);
 
